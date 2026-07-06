@@ -9,12 +9,27 @@ from textblob import TextBlob
 import numpy as np
 import pandas as pd
 
-# Ensure resources are available
-for resource in ['punkt', 'stopwords', 'wordnet']:
+# Ensure all NLTK resources are available
+REQUIRED_NLTK_DATA = [
+    'punkt',
+    'punkt_tab',
+    'stopwords',
+    'wordnet',
+    'averaged_perceptron_tagger',
+    'universal_tagset'
+]
+
+for resource in REQUIRED_NLTK_DATA:
     try:
-        nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
+        if resource in ['punkt', 'punkt_tab']:
+            nltk.data.find(f'tokenizers/{resource}')
+        else:
+            nltk.data.find(f'corpora/{resource}')
     except LookupError:
-        nltk.download(resource, quiet=True)
+        try:
+            nltk.download(resource, quiet=True)
+        except Exception as e:
+            print(f"Warning: Could not download {resource}: {e}")
 
 lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words('english'))
@@ -33,8 +48,12 @@ def preprocess_text(text):
     # Remove numbers
     text = re.sub(r'\d+', '', text)
 
-    # Tokenization
-    words = word_tokenize(text)
+    # Tokenization - use punkt_tab if available, fallback to punkt
+    try:
+        words = word_tokenize(text)
+    except LookupError:
+        # Fallback to simple split if tokenizer not available
+        words = text.split()
 
     # Remove stopwords
     words = [word for word in words if word not in stop_words]

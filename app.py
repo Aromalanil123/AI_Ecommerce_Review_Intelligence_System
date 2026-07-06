@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from utils.helpers import preprocess_text, extract_advanced_features
 from textblob import TextBlob
+from model_loader import load_models
 
 # ──────────────────────────────────────────────
 # Page Config & CSS
@@ -106,23 +107,15 @@ p, label, .stMarkdown { color: #cbd5e1 !important; }
 """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────
-# Load models
+# Load models with auto-training
 # ──────────────────────────────────────────────
 def map_authenticity_label(code):
     return 'Genuine' if code == 'OR' else 'Possibly Fake'
 
 @st.cache_resource
-def load_models():
-    base = os.path.join(os.getcwd(), 'models')
-    sent_path = os.path.join(base, 'sentiment_pipeline.pkl')
-    fake_path = os.path.join(base, 'fake_review_pipeline.pkl')
-    try:
-        sent = joblib.load(sent_path)
-        fake = joblib.load(fake_path)
-        return sent, fake
-    except Exception as exc:
-        print(f"Model loading failed: {exc}")
-        return None, None
+def get_models():
+    """Load models (trains them on first run if they don't exist)."""
+    return load_models()
 
 # ──────────────────────────────────────────────
 # Load & preprocess dataset (cached)
@@ -157,7 +150,7 @@ def run_predictions(_sent_pipe, _fake_pipe, df):
     df2['Predicted_Authenticity'] = _fake_pipe.predict(df2)
     return df2
 
-sent_pipe, fake_pipe = load_models()
+sent_pipe, fake_pipe = get_models()
 
 # ──────────────────────────────────────────────
 # Sidebar
@@ -197,7 +190,7 @@ if page == "🔍 Single Review Analysis":
         if not review_text.strip():
             st.warning("Please enter a review first.")
         elif not sent_pipe or not fake_pipe:
-            st.error("Models not found. Please run `python train_model.py` first.")
+            st.error("Models failed to load. Please check the logs.")
         else:
             with st.spinner("Analyzing your review..."):
                 # Sentiment prediction
@@ -260,7 +253,7 @@ elif page == "📤 Upload & Analyze Dataset":
     st.markdown("---")
 
     if not sent_pipe or not fake_pipe:
-        st.error("Models not found. Please run `python train_model.py` first.")
+        st.error("Models failed to load. Please check the logs.")
         st.stop()
 
     st.markdown("### 📋 Upload any CSV dataset")
